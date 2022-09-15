@@ -1,0 +1,190 @@
+<html>
+<head>
+<title>Client.java</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #000080; font-weight: bold;}
+.s1 { color: #000000;}
+.s2 { color: #008000; font-weight: bold;}
+.s3 { color: #808080; font-style: italic;}
+.s4 { color: #0000ff;}
+</style>
+</head>
+<body bgcolor="#ffffff">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#c0c0c0" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+Client.java</font>
+</center></td></tr></table>
+<pre><span class="s0">package </span>com.example.tp7_bluetooth;
+
+<span class="s0">import </span>android.bluetooth.BluetoothAdapter;
+<span class="s0">import </span>android.bluetooth.BluetoothDevice;
+<span class="s0">import </span>android.bluetooth.BluetoothGattCallback;
+<span class="s0">import </span>android.bluetooth.BluetoothManager;
+<span class="s0">import </span>android.bluetooth.BluetoothSocket;
+<span class="s0">import </span>android.content.Context;
+<span class="s0">import </span>android.os.Bundle;
+<span class="s0">import </span>android.os.Handler;
+<span class="s0">import </span>android.os.Message;
+<span class="s0">import </span>android.util.Log;
+
+<span class="s0">import </span>java.io.IOException;
+<span class="s0">import </span>java.io.InputStream;
+<span class="s0">import </span>java.io.OutputStream;
+<span class="s0">import </span>java.util.UUID;
+
+<span class="s0">import static </span>android.content.ContentValues.TAG;
+
+<span class="s0">public class </span>Client {
+    <span class="s0">public static class  </span>ConnectThread <span class="s0">extends </span>Thread {
+        <span class="s0">private  </span>BluetoothSocket mmSocket;
+        <span class="s0">private  </span>BluetoothDevice mmDevice;
+        <span class="s0">private </span>Thread ConnectedThread;
+        <span class="s0">private  </span>BluetoothManager manager;
+        <span class="s0">private </span>Handler handler;
+
+        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+
+        <span class="s0">private static final </span>UUID uuid = UUID.fromString(<span class="s2">&quot;00001101-0000-1000-8000-00805F9B34FB&quot;</span>);
+        <span class="s0">public </span>ConnectThread(BluetoothDevice device) {
+            <span class="s3">// Use a temporary object that is later assigned to mmSocket</span>
+            <span class="s3">// because mmSocket is final.</span>
+            BluetoothSocket tmp = <span class="s0">null</span>;
+            mmDevice = device;
+
+            <span class="s0">try </span>{
+                Log.i(TAG, <span class="s2">&quot;uuid ok&quot;</span>);
+                tmp = device.createRfcommSocketToServiceRecord(uuid);
+
+            } <span class="s0">catch </span>(IOException e) {
+                Log.e(TAG, <span class="s2">&quot;Socket's create() method failed&quot;</span>, e);
+            }
+            mmSocket = tmp;
+        }
+
+        <span class="s0">public void </span>run() {
+            bluetoothAdapter.cancelDiscovery();
+            Log.i(TAG, <span class="s2">&quot;inside run: &quot;</span>);
+            <span class="s0">try </span>{
+                <span class="s3">// Connect to the remote device through the socket. This call blocks</span>
+                <span class="s3">// until it succeeds or throws an exception.</span>
+                mmSocket.connect();
+                Log.i(TAG, <span class="s2">&quot;mmSocket.connect inside&quot;</span>);
+            } <span class="s0">catch </span>(IOException connectException) {
+                <span class="s3">// Unable to connect; close the socket and return.</span>
+                <span class="s0">try </span>{
+                    mmSocket.close();
+                } <span class="s0">catch </span>(IOException closeException) {
+                    Log.e(TAG, <span class="s2">&quot;Could not close the client socket&quot;</span>, closeException);
+                    Log.i(TAG, <span class="s2">&quot;socket close&quot;</span>);
+                }
+                <span class="s0">return</span>;
+            }
+
+            <span class="s3">// The connection attempt succeeded. Perform work associated with</span>
+            <span class="s3">// the connection in a separate thread.</span>
+
+            <span class="s3">//manager.getAdapter();</span>
+            manageMyConnectedSocket(mmSocket);
+        }
+
+        <span class="s0">private void </span>manageMyConnectedSocket(BluetoothSocket mmSocket) {
+
+           ConnectedThread = <span class="s0">new </span>ConnectedThread(mmSocket);
+           ConnectedThread.start();
+
+        }
+        <span class="s0">private interface </span>MessageConstants {
+            <span class="s0">public static final int </span>MESSAGE_READ = <span class="s4">0</span>;
+            <span class="s0">public static final int </span>MESSAGE_WRITE = <span class="s4">1</span>;
+            <span class="s0">public static final int </span>MESSAGE_TOAST = <span class="s4">2</span>;
+
+            <span class="s3">// ... (Add other message types here as needed.)</span>
+        }
+        <span class="s0">class </span>ConnectedThread <span class="s0">extends </span>Thread {
+            BluetoothSocket Socket;
+            <span class="s0">private  </span>BluetoothSocket mmSocket;
+            <span class="s0">private  </span>InputStream mmInStream;
+            <span class="s0">private  </span>OutputStream mmOutStream;
+            <span class="s0">private byte</span>[] mmBuffer; <span class="s3">// mmBuffer store for the stream</span>
+
+            ConnectedThread(BluetoothSocket socket) {
+
+                mmSocket = socket;
+                InputStream tmpIn = <span class="s0">null</span>;
+                OutputStream tmpOut = <span class="s0">null</span>;
+                Log.i(TAG, <span class="s2">&quot;ConnectedThread:service &quot;</span>);
+                <span class="s3">// Get the input and output streams; using temp objects because</span>
+                <span class="s3">// member streams are final.</span>
+                <span class="s0">try </span>{
+                    tmpIn = mmSocket.getInputStream();
+                } <span class="s0">catch </span>(IOException e) {
+                    Log.e(TAG, <span class="s2">&quot;Error occurred when creating input stream&quot;</span>, e);
+                }
+                <span class="s0">try </span>{
+                    tmpOut = socket.getOutputStream();
+                } <span class="s0">catch </span>(IOException e) {
+                    Log.e(TAG, <span class="s2">&quot;Error occurred when creating output stream&quot;</span>, e);
+                }
+
+                mmInStream = tmpIn;
+                mmOutStream = tmpOut;
+            }
+            <span class="s3">//MainActivity.MyBluetoothService service = new MainActivity.MyBluetoothService();</span>
+            <span class="s0">public void </span>run() {
+
+                mmBuffer = <span class="s0">new byte</span>[<span class="s4">1024</span>];
+                <span class="s0">int </span>numBytes; <span class="s3">// bytes returned from read()</span>
+                write(mmBuffer);
+                <span class="s3">/*while (true) { 
+                    try { 
+                        // Read from the InputStream. 
+                        numBytes = mmInStream.read(mmBuffer); 
+                        // Send the obtained bytes to the UI activity. 
+                        Message readMsg = handler.obtainMessage(MessageConstants.MESSAGE_READ, numBytes, -1, mmBuffer); 
+                        readMsg.sendToTarget(); 
+                    } catch (IOException e) { 
+                        Log.d(TAG, &quot;Input stream was disconnected&quot;, e); 
+                        break; 
+                    } 
+                }*/</span>
+
+            }
+
+            <span class="s3">// Call this from the main activity to send data to the remote device.</span>
+            <span class="s0">public void </span>write(<span class="s0">byte</span>[] bytes) {
+                <span class="s0">try </span>{
+                    mmOutStream.write(bytes);
+
+                    <span class="s3">// Share the sent message with the UI activity.</span>
+                    Message writtenMsg = handler.obtainMessage(MessageConstants.MESSAGE_WRITE, -<span class="s4">1</span>, -<span class="s4">1</span>, mmBuffer);
+                    writtenMsg.sendToTarget();
+                } <span class="s0">catch </span>(IOException e) {
+                    Log.e(TAG, <span class="s2">&quot;Error occurred when sending data&quot;</span>, e);
+
+                    <span class="s3">// Send a failure message back to the activity.</span>
+                    Message writeErrorMsg = handler.obtainMessage(MessageConstants.MESSAGE_TOAST);
+                    Bundle bundle = <span class="s0">new </span>Bundle();
+                    bundle.putString(<span class="s2">&quot;toast&quot;</span>, <span class="s2">&quot;Couldn't send data to the other device&quot;</span>);
+                    writeErrorMsg.setData(bundle);
+                    handler.sendMessage(writeErrorMsg);
+                }
+            }
+        }
+
+
+
+        <span class="s3">// Closes the client socket and causes the thread to finish.</span>
+        <span class="s0">public void </span>cancel() {
+            <span class="s0">try </span>{
+                mmSocket.close();
+            } <span class="s0">catch </span>(IOException e) {
+                Log.e(TAG, <span class="s2">&quot;Could not close the client socket&quot;</span>, e);
+            }
+        }
+    }
+}
+</pre>
+</body>
+</html>
