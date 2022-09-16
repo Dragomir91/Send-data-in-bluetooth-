@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">TP7_Bluetooth</string>
+    <string name="active_bluetooth">Active_bluetooth</string>
+    <string name="bluetooth">BlueTooth</string>
+</resources>
